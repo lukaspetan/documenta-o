@@ -22,7 +22,7 @@ examples/
 requirements.txt
 ```
 
-## Instalacao
+## Instalação
 
 ```bash
 python -m venv .venv
@@ -113,8 +113,11 @@ local_agent = Agent(
 Subir servidor:
 
 ```bash
+set NEUROAGENT_CORS_ORIGINS=http://localhost:3000,https://meusite.com
 python -m neuroagent.cli.neuroagent_cli start-server --host 0.0.0.0 --port 8000
 ```
+
+`NEUROAGENT_CORS_ORIGINS` permite liberar o domínio do site do usuário para chamadas do navegador.
 
 Endpoint principal:
 
@@ -143,6 +146,7 @@ Endpoints adicionais:
 - `GET /health`
 - `GET /agents`
 - `POST /agent/register`
+- `GET /widget.js`
 
 ## WebSocket tempo real
 
@@ -158,20 +162,65 @@ Payload enviado:
 }
 ```
 
-## Integracao com sites (widget.js)
+## Conectar o agente de IA com o site do usuario
 
-Arquivo:
+### 1) Suba o servidor e registre o agente
 
-- `neuroagent/frontend/widget.js`
+```bash
+set NEUROAGENT_CORS_ORIGINS=http://localhost:3000,https://meusite.com
+python -m neuroagent.cli.neuroagent_cli start-server --host 0.0.0.0 --port 8000
+```
 
-Uso no site:
+```bash
+curl -X POST http://localhost:8000/agent/register ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"SupportAgent\",\"goal\":\"Responder duvidas de usuarios do site\"}"
+```
+
+### 2) Integracao via fetch (REST)
 
 ```html
-<script src="https://cdn.neuroagent.ai/widget.js"></script>
+<script>
+  async function perguntarAoAgente(message) {
+    const response = await fetch("http://localhost:8000/agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agent: "SupportAgent",
+        message
+      })
+    });
+
+    const data = await response.json();
+    return data.response;
+  }
+</script>
+```
+
+### 3) Integracao via widget pronto
+
+O servidor expõe o widget em `GET /widget.js`:
+
+```html
+<script src="http://localhost:8000/widget.js"></script>
 <script>
   NeuroAgent.init({
     apiUrl: "http://localhost:8000",
-    agent: "DevAgent"
+    agent: "SupportAgent"
+  });
+</script>
+```
+
+### 4) Tempo real com WebSocket no widget
+
+```html
+<script src="http://localhost:8000/widget.js"></script>
+<script>
+  NeuroAgent.init({
+    apiUrl: "http://localhost:8000",
+    wsUrl: "ws://localhost:8000",
+    agent: "SupportAgent",
+    realtime: true
   });
 </script>
 ```
